@@ -34,11 +34,35 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      #- ./mcp.json:/etc/mcp.json # Mount MCP servers directory
+      - ./mcp.json:/etc/mcp.json # Mount MCP servers directory
     networks:
       - manus-network
     env_file:
       - .env
+
+  mcp-server:
+    image: ${IMAGE_REGISTRY:-simpleyyt}/manus-backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
+    depends_on:
+      - sandbox
+      - mongodb
+      - redis
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - manus-network
+    env_file:
+      - .env
+    command: python -m app.infrastructure.external.mcp.run_server
 
   sandbox:
     image: ${IMAGE_REGISTRY:-simpleyyt}/manus-sandbox:${IMAGE_TAG:-latest}
