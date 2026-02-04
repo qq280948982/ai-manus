@@ -25,6 +25,7 @@ class DockerSandbox(Sandbox):
         self._vnc_url = f"ws://{self.ip}:5901"
         self._cdp_url = f"http://{self.ip}:9222"
         self._container_name = container_name
+        self._browser: Optional[Browser] = None  # Cache browser instance
     
     @property
     def id(self) -> str:
@@ -388,6 +389,146 @@ class DockerSandbox(Sandbox):
         )
         return ToolResult(**response.json())
 
+    async def search_in_file(self, file: str, regex: str, sudo: bool = False) -> ToolResult:
+        """Search in file content
+        
+        Args:
+            file: File path
+            regex: Regular expression
+            sudo: Whether to use sudo privileges
+            
+        Returns:
+            Search results
+        """
+        response = await self.client.post(
+            f"{self.base_url}/api/v1/file/search",
+            json={
+                "file": file,
+                "regex": regex,
+                "sudo": sudo
+            }
+        )
+        return ToolResult(**response.json())
+
+    async def str_replace_in_file(self, file: str, old_str: str, new_str: str, sudo: bool = False) -> ToolResult:
+        """Replace string in file
+        
+        Args:
+            file: File path
+            old_str: String to replace
+            new_str: String to replace with
+            sudo: Whether to use sudo privileges
+            
+        Returns:
+            Result of replace operation
+        """
+        response = await self.client.post(
+            f"{self.base_url}/api/v1/file/replace",
+            json={
+                "file": file,
+                "old_str": old_str,
+                "new_str": new_str,
+                "sudo": sudo
+            }
+        )
+        return ToolResult(**response.json())
+
+    async def view_shell_session(self, session_id: str, console: bool = False) -> ToolResult:
+        """View shell session output
+        
+        Args:
+            session_id: Shell session ID
+            console: Whether to view console output only
+            
+        Returns:
+            Session output
+        """
+        response = await self.client.post(
+            f"{self.base_url}/api/v1/shell/view",
+            json={
+                "id": session_id,
+                "console": console
+            }
+        )
+        return ToolResult(**response.json())
+
+    async def wait_for_process(self, session_id: str, seconds: int = None) -> ToolResult:
+        """Wait for process to complete
+        
+        Args:
+            session_id: Shell session ID
+            seconds: Timeout in seconds
+            
+        Returns:
+            Process completion result
+        """
+        response = await self.client.post(
+            f"{self.base_url}/api/v1/shell/wait",
+            json={
+                "id": session_id,
+                "seconds": seconds
+            }
+        )
+        return ToolResult(**response.json())
+
+    async def write_to_process(self, session_id: str, input_text: str, press_enter: bool = True) -> ToolResult:
+        """Write input to process
+        
+        Args:
+            session_id: Shell session ID
+            input_text: Input text to write
+            press_enter: Whether to press enter after writing
+            
+        Returns:
+            Write operation result
+        """
+        response = await self.client.post(
+            f"{self.base_url}/api/v1/shell/write",
+            json={
+                "id": session_id,
+                "input": input_text,
+                "press_enter": press_enter
+            }
+        )
+        return ToolResult(**response.json())
+
+    async def kill_process(self, session_id: str) -> ToolResult:
+        """Kill process in shell session
+        
+        Args:
+            session_id: Shell session ID
+            
+        Returns:
+            Kill operation result
+        """
+        response = await self.client.post(
+            f"{self.base_url}/api/v1/shell/kill",
+            json={"id": session_id}
+        )
+        return ToolResult(**response.json())
+
+    async def get_supervisor_status(self) -> ToolResult:
+        """Get supervisor status
+        
+        Returns:
+            Service status list
+        """
+        response = await self.client.get(
+            f"{self.base_url}/api/v1/supervisor/status"
+        )
+        return ToolResult(**response.json())
+
+    async def restart_all_services(self) -> ToolResult:
+        """Restart all services
+        
+        Returns:
+            Restart operation result
+        """
+        response = await self.client.post(
+            f"{self.base_url}/api/v1/supervisor/restart"
+        )
+        return ToolResult(**response.json())
+
     async def file_upload(self, file_data: BinaryIO, path: str, filename: str = None) -> ToolResult:
         """Upload file to sandbox
         
@@ -488,7 +629,10 @@ class DockerSandbox(Sandbox):
             Browser: Returns a configured PlaywrightBrowser instance
                     connected using the sandbox's CDP URL
         """
-        return PlaywrightBrowser(self.cdp_url)
+        # Cache browser instance to avoid creating new tabs on each call
+        if self._browser is None:
+            self._browser = PlaywrightBrowser(self.cdp_url)
+        return self._browser
 
     @staticmethod
     @alru_cache(maxsize=128, typed=True)
