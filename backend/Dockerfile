@@ -2,8 +2,8 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install curl
-RUN apt-get update && apt-get install -y curl
+# Install curl and dos2unix
+RUN apt-get update && apt-get install -y curl dos2unix
 
 # Install uv
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
@@ -22,8 +22,8 @@ RUN uv pip install --system --no-cache -r requirements.txt
 # Copy project files
 COPY . .
 
-# Set script execution permissions
-RUN chmod +x run.sh
+# Set script execution permissions and convert line endings
+RUN dos2unix run.sh && chmod +x run.sh
 
 # Set environment variables
 ENV PYTHONPATH=/app

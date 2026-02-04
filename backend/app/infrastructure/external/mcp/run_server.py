@@ -14,5 +14,7 @@ if __name__ == "__main__":
         app,
         host="0.0.0.0",
         port=8081,
-        reload=False
+        reload=False,
+        forwarded_allow_ips="*",
+        log_level="debug"
     )

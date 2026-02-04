@@ -25,9 +25,9 @@ COPY --from=build-stage /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf.template
 
-# Copy entrypoint script
+# Copy entrypoint script and convert line endings
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN dos2unix /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh && ls -la /docker-entrypoint.sh
 
 # Expose port 80
 EXPOSE 80
