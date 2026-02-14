@@ -204,184 +204,224 @@ class ManusMCPServer:
         self._register_tools()
 
     def _register_tools(self):
-        """注册 MCP 工具 - 直接操作 _tools 字典以符合 MCP 规范"""
+        """注册 MCP 工具 - 使用 add_tool 后修改 parameters"""
         tool_manager = self.server._tool_manager
 
-        # 定义所有工具
-        tools = [
-            {
-                "name": "create_sandbox",
-                "title": "创建 Sandbox",
-                "description": "创建一个新的 Docker sandbox 容器，返回 sandbox_id 和 IP 地址",
-                "parameters": {"type": "object", "properties": {}, "required": []},
-                "handler": self._handle_create_sandbox,
-            },
-            {
-                "name": "exec_command",
-                "title": "执行命令",
-                "description": "在指定的 sandbox 容器中执行 shell 命令。支持 sudo 权限执行系统命令",
-                "parameters": _build_input_schema(ExecCommandParams),
-                "handler": self._handle_exec_command,
-            },
-            {
-                "name": "file_write",
-                "title": "写入文件",
-                "description": "在指定的 sandbox 容器中写入文件内容。建议使用用户主目录 /home/ubuntu/ 或 /tmp/，避免使用根目录 /",
-                "parameters": _build_input_schema(FileWriteParams),
-                "handler": self._handle_file_write,
-            },
-            {
-                "name": "file_read",
-                "title": "读取文件",
-                "description": "从指定的 sandbox 容器中读取文件内容。支持 sudo 权限读取系统文件",
-                "parameters": _build_input_schema(FileReadParams),
-                "handler": self._handle_file_read,
-            },
-            {
-                "name": "file_exists",
-                "title": "检查文件存在",
-                "description": "检查指定的 sandbox 容器中文件是否存在。支持 sudo 权限检查系统文件",
-                "parameters": _build_input_schema(FileExistsParams),
-                "handler": self._handle_file_exists,
-            },
-            {
-                "name": "file_delete",
-                "title": "删除文件",
-                "description": "从指定的 sandbox 容器中删除文件。支持 sudo 权限删除系统文件",
-                "parameters": _build_input_schema(FileDeleteParams),
-                "handler": self._handle_file_delete,
-            },
-            {
-                "name": "file_list",
-                "title": "列出目录",
-                "description": "列出指定 sandbox 容器中目录的内容。支持 sudo 权限列出系统目录",
-                "parameters": _build_input_schema(FileListParams),
-                "handler": self._handle_file_list,
-            },
-            {
-                "name": "file_search",
-                "title": "搜索文件内容",
-                "description": "在指定的 sandbox 容器文件中搜索内容。支持正则表达式搜索",
-                "parameters": _build_input_schema(FileSearchParams),
-                "handler": self._handle_file_search,
-            },
-            {
-                "name": "file_replace",
-                "title": "替换文件内容",
-                "description": "在指定的 sandbox 容器文件中替换字符串内容。支持 sudo 权限修改系统文件",
-                "parameters": _build_input_schema(FileReplaceParams),
-                "handler": self._handle_file_replace,
-            },
-            {
-                "name": "file_find",
-                "title": "查找文件",
-                "description": "在指定的 sandbox 容器目录中根据模式查找文件。支持通配符模式",
-                "parameters": _build_input_schema(FileFindParams),
-                "handler": self._handle_file_find,
-            },
-            {
-                "name": "shell_view",
-                "title": "查看 Shell 输出",
-                "description": "查看指定 sandbox 容器 shell 会话的输出内容。可以查看控制台输出",
-                "parameters": _build_input_schema(ShellViewParams),
-                "handler": self._handle_shell_view,
-            },
-            {
-                "name": "shell_wait",
-                "title": "等待进程",
-                "description": "等待指定 sandbox 容器 shell 会话中的进程执行完成",
-                "parameters": _build_input_schema(ShellWaitParams),
-                "handler": self._handle_shell_wait,
-            },
-            {
-                "name": "shell_write",
-                "title": "写入进程输入",
-                "description": "向指定 sandbox 容器 shell 会话的进程写入输入内容。可以模拟用户输入",
-                "parameters": _build_input_schema(ShellWriteParams),
-                "handler": self._handle_shell_write,
-            },
-            {
-                "name": "shell_kill",
-                "title": "终止进程",
-                "description": "终止指定 sandbox 容器 shell 会话中的进程",
-                "parameters": _build_input_schema(ShellKillParams),
-                "handler": self._handle_shell_kill,
-            },
-            {
-                "name": "supervisor_status",
-                "title": "获取服务状态",
-                "description": "获取指定 sandbox 容器中所有服务的状态信息",
-                "parameters": _build_input_schema(SupervisorStatusParams),
-                "handler": self._handle_supervisor_status,
-            },
-            {
-                "name": "supervisor_restart",
-                "title": "重启服务",
-                "description": "重启指定 sandbox 容器中的所有服务",
-                "parameters": _build_input_schema(SupervisorRestartParams),
-                "handler": self._handle_supervisor_restart,
-            },
-            {
-                "name": "browser_navigate",
-                "title": "浏览器导航",
-                "description": "在 sandbox 容器的浏览器中导航到指定网址。timeout_seconds 参数单位为秒，默认15秒",
-                "parameters": _build_input_schema(BrowserNavigateParams),
-                "handler": self._handle_browser_navigate,
-            },
-            {
-                "name": "browser_view",
-                "title": "查看浏览器页面",
-                "description": "查看 sandbox 容器浏览器当前页面的内容和交互元素",
-                "parameters": _build_input_schema(BrowserViewParams),
-                "handler": self._handle_browser_view,
-            },
-            {
-                "name": "browser_click",
-                "title": "浏览器点击",
-                "description": "在 sandbox 容器浏览器中点击页面元素或指定坐标",
-                "parameters": _build_input_schema(BrowserClickParams),
-                "handler": self._handle_browser_click,
-            },
-            {
-                "name": "browser_input",
-                "title": "浏览器输入",
-                "description": "在 sandbox 容器浏览器中向页面元素输入文本",
-                "parameters": _build_input_schema(BrowserInputParams),
-                "handler": self._handle_browser_input,
-            },
-            {
-                "name": "browser_screenshot",
-                "title": "浏览器截图",
-                "description": "对 sandbox 容器浏览器当前页面进行截图",
-                "parameters": _build_input_schema(BrowserScreenshotParams),
-                "handler": self._handle_browser_screenshot,
-            },
-            {
-                "name": "browser_scroll",
-                "title": "浏览器滚动",
-                "description": "在 sandbox 容器浏览器中滚动页面",
-                "parameters": _build_input_schema(BrowserScrollParams),
-                "handler": self._handle_browser_scroll,
-            },
-            {
-                "name": "browser_console_exec",
-                "title": "执行 JavaScript",
-                "description": "在 sandbox 容器浏览器中执行 JavaScript 代码",
-                "parameters": _build_input_schema(BrowserConsoleExecParams),
-                "handler": self._handle_browser_console_exec,
-            },
-            {
-                "name": "browser_console_view",
-                "title": "查看控制台输出",
-                "description": "查看 sandbox 容器浏览器的控制台输出",
-                "parameters": _build_input_schema(BrowserConsoleViewParams),
-                "handler": self._handle_browser_console_view,
-            },
-        ]
+        # 1. create_sandbox - 无参数
+        tool = tool_manager.add_tool(
+            fn=self._handle_create_sandbox,
+            name="create_sandbox",
+            title="创建 Sandbox",
+            description="创建一个新的 Docker sandbox 容器，返回 sandbox_id 和 IP 地址"
+        )
+        tool.parameters = {"type": "object", "properties": {}, "required": []}
 
-        # 直接注册工具到 tool_manager
-        for tool_def in tools:
-            tool_manager._tools[tool_def["name"]] = tool_def
+        # 2. exec_command
+        tool = tool_manager.add_tool(
+            fn=self._handle_exec_command,
+            name="exec_command",
+            title="执行命令",
+            description="在指定的 sandbox 容器中执行 shell 命令。支持 sudo 权限执行系统命令"
+        )
+        tool.parameters = _build_input_schema(ExecCommandParams)
+
+        # 3. file_write
+        tool = tool_manager.add_tool(
+            fn=self._handle_file_write,
+            name="file_write",
+            title="写入文件",
+            description="在指定的 sandbox 容器中写入文件内容。建议使用用户主目录 /home/ubuntu/ 或 /tmp/，避免使用根目录 /"
+        )
+        tool.parameters = _build_input_schema(FileWriteParams)
+
+        # 4. file_read
+        tool = tool_manager.add_tool(
+            fn=self._handle_file_read,
+            name="file_read",
+            title="读取文件",
+            description="从指定的 sandbox 容器中读取文件内容。支持 sudo 权限读取系统文件"
+        )
+        tool.parameters = _build_input_schema(FileReadParams)
+
+        # 5. file_exists
+        tool = tool_manager.add_tool(
+            fn=self._handle_file_exists,
+            name="file_exists",
+            title="检查文件存在",
+            description="检查指定的 sandbox 容器中文件是否存在。支持 sudo 权限检查系统文件"
+        )
+        tool.parameters = _build_input_schema(FileExistsParams)
+
+        # 6. file_delete
+        tool = tool_manager.add_tool(
+            fn=self._handle_file_delete,
+            name="file_delete",
+            title="删除文件",
+            description="从指定的 sandbox 容器中删除文件。支持 sudo 权限删除系统文件"
+        )
+        tool.parameters = _build_input_schema(FileDeleteParams)
+
+        # 7. file_list
+        tool = tool_manager.add_tool(
+            fn=self._handle_file_list,
+            name="file_list",
+            title="列出目录",
+            description="列出指定 sandbox 容器中目录的内容。支持 sudo 权限列出系统目录"
+        )
+        tool.parameters = _build_input_schema(FileListParams)
+
+        # 8. file_search
+        tool = tool_manager.add_tool(
+            fn=self._handle_file_search,
+            name="file_search",
+            title="搜索文件内容",
+            description="在指定的 sandbox 容器文件中搜索内容。支持正则表达式搜索"
+        )
+        tool.parameters = _build_input_schema(FileSearchParams)
+
+        # 9. file_replace
+        tool = tool_manager.add_tool(
+            fn=self._handle_file_replace,
+            name="file_replace",
+            title="替换文件内容",
+            description="在指定的 sandbox 容器文件中替换字符串内容。支持 sudo 权限修改系统文件"
+        )
+        tool.parameters = _build_input_schema(FileReplaceParams)
+
+        # 10. file_find
+        tool = tool_manager.add_tool(
+            fn=self._handle_file_find,
+            name="file_find",
+            title="查找文件",
+            description="在指定的 sandbox 容器目录中根据模式查找文件。支持通配符模式"
+        )
+        tool.parameters = _build_input_schema(FileFindParams)
+
+        # 11. shell_view
+        tool = tool_manager.add_tool(
+            fn=self._handle_shell_view,
+            name="shell_view",
+            title="查看 Shell 输出",
+            description="查看指定 sandbox 容器 shell 会话的输出内容。可以查看控制台输出"
+        )
+        tool.parameters = _build_input_schema(ShellViewParams)
+
+        # 12. shell_wait
+        tool = tool_manager.add_tool(
+            fn=self._handle_shell_wait,
+            name="shell_wait",
+            title="等待进程",
+            description="等待指定 sandbox 容器 shell 会话中的进程执行完成"
+        )
+        tool.parameters = _build_input_schema(ShellWaitParams)
+
+        # 13. shell_write
+        tool = tool_manager.add_tool(
+            fn=self._handle_shell_write,
+            name="shell_write",
+            title="写入进程输入",
+            description="向指定 sandbox 容器 shell 会话的进程写入输入内容。可以模拟用户输入"
+        )
+        tool.parameters = _build_input_schema(ShellWriteParams)
+
+        # 14. shell_kill
+        tool = tool_manager.add_tool(
+            fn=self._handle_shell_kill,
+            name="shell_kill",
+            title="终止进程",
+            description="终止指定 sandbox 容器 shell 会话中的进程"
+        )
+        tool.parameters = _build_input_schema(ShellKillParams)
+
+        # 15. supervisor_status
+        tool = tool_manager.add_tool(
+            fn=self._handle_supervisor_status,
+            name="supervisor_status",
+            title="获取服务状态",
+            description="获取指定 sandbox 容器中所有服务的状态信息"
+        )
+        tool.parameters = _build_input_schema(SupervisorStatusParams)
+
+        # 16. supervisor_restart
+        tool = tool_manager.add_tool(
+            fn=self._handle_supervisor_restart,
+            name="supervisor_restart",
+            title="重启服务",
+            description="重启指定 sandbox 容器中的所有服务"
+        )
+        tool.parameters = _build_input_schema(SupervisorRestartParams)
+
+        # 17. browser_navigate
+        tool = tool_manager.add_tool(
+            fn=self._handle_browser_navigate,
+            name="browser_navigate",
+            title="浏览器导航",
+            description="在 sandbox 容器的浏览器中导航到指定网址。timeout_seconds 参数单位为秒，默认15秒"
+        )
+        tool.parameters = _build_input_schema(BrowserNavigateParams)
+
+        # 18. browser_view
+        tool = tool_manager.add_tool(
+            fn=self._handle_browser_view,
+            name="browser_view",
+            title="查看浏览器页面",
+            description="查看 sandbox 容器浏览器当前页面的内容和交互元素"
+        )
+        tool.parameters = _build_input_schema(BrowserViewParams)
+
+        # 19. browser_click
+        tool = tool_manager.add_tool(
+            fn=self._handle_browser_click,
+            name="browser_click",
+            title="浏览器点击",
+            description="在 sandbox 容器浏览器中点击页面元素或指定坐标"
+        )
+        tool.parameters = _build_input_schema(BrowserClickParams)
+
+        # 20. browser_input
+        tool = tool_manager.add_tool(
+            fn=self._handle_browser_input,
+            name="browser_input",
+            title="浏览器输入",
+            description="在 sandbox 容器浏览器中向页面元素输入文本"
+        )
+        tool.parameters = _build_input_schema(BrowserInputParams)
+
+        # 21. browser_screenshot
+        tool = tool_manager.add_tool(
+            fn=self._handle_browser_screenshot,
+            name="browser_screenshot",
+            title="浏览器截图",
+            description="对 sandbox 容器浏览器当前页面进行截图"
+        )
+        tool.parameters = _build_input_schema(BrowserScreenshotParams)
+
+        # 22. browser_scroll
+        tool = tool_manager.add_tool(
+            fn=self._handle_browser_scroll,
+            name="browser_scroll",
+            title="浏览器滚动",
+            description="在 sandbox 容器浏览器中滚动页面"
+        )
+        tool.parameters = _build_input_schema(BrowserScrollParams)
+
+        # 23. browser_console_exec
+        tool = tool_manager.add_tool(
+            fn=self._handle_browser_console_exec,
+            name="browser_console_exec",
+            title="执行 JavaScript",
+            description="在 sandbox 容器浏览器中执行 JavaScript 代码"
+        )
+        tool.parameters = _build_input_schema(BrowserConsoleExecParams)
+
+        # 24. browser_console_view
+        tool = tool_manager.add_tool(
+            fn=self._handle_browser_console_view,
+            name="browser_console_view",
+            title="查看控制台输出",
+            description="查看 sandbox 容器浏览器的控制台输出"
+        )
+        tool.parameters = _build_input_schema(BrowserConsoleViewParams)
 
     def _create_success_result(self, data: Dict[str, Any]) -> CallToolResult:
         """创建成功的 CallToolResult"""
