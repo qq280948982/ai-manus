@@ -176,6 +176,16 @@ class BrowserConsoleViewParams(BaseModel):
     sandbox_id: str = Field(..., description="sandbox 容器的唯一标识符")
 
 
+def _build_input_schema(model_class: type[BaseModel]) -> dict:
+    """从 Pydantic 模型构建符合 MCP 规范的 inputSchema"""
+    schema = model_class.model_json_schema()
+    return {
+        "type": "object",
+        "properties": schema.get("properties", {}),
+        "required": schema.get("required", [])
+    }
+
+
 class ManusMCPServer:
     """ai-manus MCP 服务器实现"""
 
@@ -194,175 +204,184 @@ class ManusMCPServer:
         self._register_tools()
 
     def _register_tools(self):
-        """注册 MCP 工具"""
-        # 注册 sandbox 相关工具
-        self.server.add_tool(
-            fn=self._handle_create_sandbox,
-            name="create_sandbox",
-            title="创建 Sandbox",
-            description="创建一个新的 Docker sandbox 容器，返回 sandbox_id 和 IP 地址"
-        )
+        """注册 MCP 工具 - 直接操作 _tools 字典以符合 MCP 规范"""
+        tool_manager = self.server._tool_manager
 
-        self.server.add_tool(
-            fn=self._handle_exec_command,
-            name="exec_command",
-            title="执行命令",
-            description="在指定的 sandbox 容器中执行 shell 命令。支持 sudo 权限执行系统命令"
-        )
+        # 定义所有工具
+        tools = [
+            {
+                "name": "create_sandbox",
+                "title": "创建 Sandbox",
+                "description": "创建一个新的 Docker sandbox 容器，返回 sandbox_id 和 IP 地址",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+                "handler": self._handle_create_sandbox,
+            },
+            {
+                "name": "exec_command",
+                "title": "执行命令",
+                "description": "在指定的 sandbox 容器中执行 shell 命令。支持 sudo 权限执行系统命令",
+                "parameters": _build_input_schema(ExecCommandParams),
+                "handler": self._handle_exec_command,
+            },
+            {
+                "name": "file_write",
+                "title": "写入文件",
+                "description": "在指定的 sandbox 容器中写入文件内容。建议使用用户主目录 /home/ubuntu/ 或 /tmp/，避免使用根目录 /",
+                "parameters": _build_input_schema(FileWriteParams),
+                "handler": self._handle_file_write,
+            },
+            {
+                "name": "file_read",
+                "title": "读取文件",
+                "description": "从指定的 sandbox 容器中读取文件内容。支持 sudo 权限读取系统文件",
+                "parameters": _build_input_schema(FileReadParams),
+                "handler": self._handle_file_read,
+            },
+            {
+                "name": "file_exists",
+                "title": "检查文件存在",
+                "description": "检查指定的 sandbox 容器中文件是否存在。支持 sudo 权限检查系统文件",
+                "parameters": _build_input_schema(FileExistsParams),
+                "handler": self._handle_file_exists,
+            },
+            {
+                "name": "file_delete",
+                "title": "删除文件",
+                "description": "从指定的 sandbox 容器中删除文件。支持 sudo 权限删除系统文件",
+                "parameters": _build_input_schema(FileDeleteParams),
+                "handler": self._handle_file_delete,
+            },
+            {
+                "name": "file_list",
+                "title": "列出目录",
+                "description": "列出指定 sandbox 容器中目录的内容。支持 sudo 权限列出系统目录",
+                "parameters": _build_input_schema(FileListParams),
+                "handler": self._handle_file_list,
+            },
+            {
+                "name": "file_search",
+                "title": "搜索文件内容",
+                "description": "在指定的 sandbox 容器文件中搜索内容。支持正则表达式搜索",
+                "parameters": _build_input_schema(FileSearchParams),
+                "handler": self._handle_file_search,
+            },
+            {
+                "name": "file_replace",
+                "title": "替换文件内容",
+                "description": "在指定的 sandbox 容器文件中替换字符串内容。支持 sudo 权限修改系统文件",
+                "parameters": _build_input_schema(FileReplaceParams),
+                "handler": self._handle_file_replace,
+            },
+            {
+                "name": "file_find",
+                "title": "查找文件",
+                "description": "在指定的 sandbox 容器目录中根据模式查找文件。支持通配符模式",
+                "parameters": _build_input_schema(FileFindParams),
+                "handler": self._handle_file_find,
+            },
+            {
+                "name": "shell_view",
+                "title": "查看 Shell 输出",
+                "description": "查看指定 sandbox 容器 shell 会话的输出内容。可以查看控制台输出",
+                "parameters": _build_input_schema(ShellViewParams),
+                "handler": self._handle_shell_view,
+            },
+            {
+                "name": "shell_wait",
+                "title": "等待进程",
+                "description": "等待指定 sandbox 容器 shell 会话中的进程执行完成",
+                "parameters": _build_input_schema(ShellWaitParams),
+                "handler": self._handle_shell_wait,
+            },
+            {
+                "name": "shell_write",
+                "title": "写入进程输入",
+                "description": "向指定 sandbox 容器 shell 会话的进程写入输入内容。可以模拟用户输入",
+                "parameters": _build_input_schema(ShellWriteParams),
+                "handler": self._handle_shell_write,
+            },
+            {
+                "name": "shell_kill",
+                "title": "终止进程",
+                "description": "终止指定 sandbox 容器 shell 会话中的进程",
+                "parameters": _build_input_schema(ShellKillParams),
+                "handler": self._handle_shell_kill,
+            },
+            {
+                "name": "supervisor_status",
+                "title": "获取服务状态",
+                "description": "获取指定 sandbox 容器中所有服务的状态信息",
+                "parameters": _build_input_schema(SupervisorStatusParams),
+                "handler": self._handle_supervisor_status,
+            },
+            {
+                "name": "supervisor_restart",
+                "title": "重启服务",
+                "description": "重启指定 sandbox 容器中的所有服务",
+                "parameters": _build_input_schema(SupervisorRestartParams),
+                "handler": self._handle_supervisor_restart,
+            },
+            {
+                "name": "browser_navigate",
+                "title": "浏览器导航",
+                "description": "在 sandbox 容器的浏览器中导航到指定网址。timeout_seconds 参数单位为秒，默认15秒",
+                "parameters": _build_input_schema(BrowserNavigateParams),
+                "handler": self._handle_browser_navigate,
+            },
+            {
+                "name": "browser_view",
+                "title": "查看浏览器页面",
+                "description": "查看 sandbox 容器浏览器当前页面的内容和交互元素",
+                "parameters": _build_input_schema(BrowserViewParams),
+                "handler": self._handle_browser_view,
+            },
+            {
+                "name": "browser_click",
+                "title": "浏览器点击",
+                "description": "在 sandbox 容器浏览器中点击页面元素或指定坐标",
+                "parameters": _build_input_schema(BrowserClickParams),
+                "handler": self._handle_browser_click,
+            },
+            {
+                "name": "browser_input",
+                "title": "浏览器输入",
+                "description": "在 sandbox 容器浏览器中向页面元素输入文本",
+                "parameters": _build_input_schema(BrowserInputParams),
+                "handler": self._handle_browser_input,
+            },
+            {
+                "name": "browser_screenshot",
+                "title": "浏览器截图",
+                "description": "对 sandbox 容器浏览器当前页面进行截图",
+                "parameters": _build_input_schema(BrowserScreenshotParams),
+                "handler": self._handle_browser_screenshot,
+            },
+            {
+                "name": "browser_scroll",
+                "title": "浏览器滚动",
+                "description": "在 sandbox 容器浏览器中滚动页面",
+                "parameters": _build_input_schema(BrowserScrollParams),
+                "handler": self._handle_browser_scroll,
+            },
+            {
+                "name": "browser_console_exec",
+                "title": "执行 JavaScript",
+                "description": "在 sandbox 容器浏览器中执行 JavaScript 代码",
+                "parameters": _build_input_schema(BrowserConsoleExecParams),
+                "handler": self._handle_browser_console_exec,
+            },
+            {
+                "name": "browser_console_view",
+                "title": "查看控制台输出",
+                "description": "查看 sandbox 容器浏览器的控制台输出",
+                "parameters": _build_input_schema(BrowserConsoleViewParams),
+                "handler": self._handle_browser_console_view,
+            },
+        ]
 
-        self.server.add_tool(
-            fn=self._handle_file_write,
-            name="file_write",
-            title="写入文件",
-            description="在指定的 sandbox 容器中写入文件内容。建议使用用户主目录 /home/ubuntu/ 或 /tmp/，避免使用根目录 /"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_file_read,
-            name="file_read",
-            title="读取文件",
-            description="从指定的 sandbox 容器中读取文件内容。支持 sudo 权限读取系统文件"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_file_exists,
-            name="file_exists",
-            title="检查文件存在",
-            description="检查指定的 sandbox 容器中文件是否存在。支持 sudo 权限检查系统文件"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_file_delete,
-            name="file_delete",
-            title="删除文件",
-            description="从指定的 sandbox 容器中删除文件。支持 sudo 权限删除系统文件"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_file_list,
-            name="file_list",
-            title="列出目录",
-            description="列出指定 sandbox 容器中目录的内容。支持 sudo 权限列出系统目录"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_file_search,
-            name="file_search",
-            title="搜索文件内容",
-            description="在指定的 sandbox 容器文件中搜索内容。支持正则表达式搜索"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_file_replace,
-            name="file_replace",
-            title="替换文件内容",
-            description="在指定的 sandbox 容器文件中替换字符串内容。支持 sudo 权限修改系统文件"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_file_find,
-            name="file_find",
-            title="查找文件",
-            description="在指定的 sandbox 容器目录中根据模式查找文件。支持通配符模式"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_shell_view,
-            name="shell_view",
-            title="查看 Shell 输出",
-            description="查看指定 sandbox 容器 shell 会话的输出内容。可以查看控制台输出"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_shell_wait,
-            name="shell_wait",
-            title="等待进程",
-            description="等待指定 sandbox 容器 shell 会话中的进程执行完成"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_shell_write,
-            name="shell_write",
-            title="写入进程输入",
-            description="向指定 sandbox 容器 shell 会话的进程写入输入内容。可以模拟用户输入"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_shell_kill,
-            name="shell_kill",
-            title="终止进程",
-            description="终止指定 sandbox 容器 shell 会话中的进程"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_supervisor_status,
-            name="supervisor_status",
-            title="获取服务状态",
-            description="获取指定 sandbox 容器中所有服务的状态信息"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_supervisor_restart,
-            name="supervisor_restart",
-            title="重启服务",
-            description="重启指定 sandbox 容器中的所有服务"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_browser_navigate,
-            name="browser_navigate",
-            title="浏览器导航",
-            description="在 sandbox 容器的浏览器中导航到指定网址。timeout_seconds 参数单位为秒，默认15秒"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_browser_view,
-            name="browser_view",
-            title="查看浏览器页面",
-            description="查看 sandbox 容器浏览器当前页面的内容和交互元素"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_browser_click,
-            name="browser_click",
-            title="浏览器点击",
-            description="在 sandbox 容器浏览器中点击页面元素或指定坐标"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_browser_input,
-            name="browser_input",
-            title="浏览器输入",
-            description="在 sandbox 容器浏览器中向页面元素输入文本"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_browser_screenshot,
-            name="browser_screenshot",
-            title="浏览器截图",
-            description="对 sandbox 容器浏览器当前页面进行截图"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_browser_scroll,
-            name="browser_scroll",
-            title="浏览器滚动",
-            description="在 sandbox 容器浏览器中滚动页面"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_browser_console_exec,
-            name="browser_console_exec",
-            title="执行 JavaScript",
-            description="在 sandbox 容器浏览器中执行 JavaScript 代码"
-        )
-
-        self.server.add_tool(
-            fn=self._handle_browser_console_view,
-            name="browser_console_view",
-            title="查看控制台输出",
-            description="查看 sandbox 容器浏览器的控制台输出"
-        )
+        # 直接注册工具到 tool_manager
+        for tool_def in tools:
+            tool_manager._tools[tool_def["name"]] = tool_def
 
     def _create_success_result(self, data: Dict[str, Any]) -> CallToolResult:
         """创建成功的 CallToolResult"""
@@ -389,9 +408,7 @@ class ManusMCPServer:
         )
 
     async def _handle_create_sandbox(self) -> CallToolResult:
-        """
-        创建一个新的 Docker sandbox 容器
-        """
+        """创建一个新的 Docker sandbox 容器"""
         try:
             sandbox = await DockerSandbox.create()
             await sandbox.ensure_sandbox()
@@ -408,23 +425,21 @@ class ManusMCPServer:
             logger.error(f"创建 sandbox 失败: {e}")
             return self._create_error_result(f"创建 sandbox 失败: {str(e)}")
 
-    async def _handle_exec_command(self, params: ExecCommandParams) -> CallToolResult:
-        """
-        在指定的 sandbox 容器中执行 shell 命令
-        """
+    async def _handle_exec_command(self, **kwargs) -> CallToolResult:
+        """在指定的 sandbox 容器中执行 shell 命令"""
         try:
+            params = ExecCommandParams(**kwargs)
+            
             if not params.sandbox_id or params.sandbox_id.strip() == "":
                 return self._create_error_result("缺少 sandbox_id 参数，sandbox ID 不能为空")
             if not params.command or params.command.strip() == "":
                 return self._create_error_result("缺少 command 参数，命令不能为空")
 
             sandbox = await DockerSandbox.get(params.sandbox_id)
-            # 如果需要 sudo，用 shell 包裹整个命令，避免引号转义问题
             if params.sudo:
                 actual_command = f"sudo sh -c {json.dumps(params.command)}"
             else:
                 actual_command = params.command
-            # 使用 sandbox.id 作为 session_id 调用 exec_command
             result = await sandbox.exec_command(sandbox.id, params.exec_dir, actual_command)
 
             if result.success:
@@ -439,11 +454,11 @@ class ManusMCPServer:
             logger.error(f"执行命令失败: {e}")
             return self._create_error_result(f"执行命令失败: {str(e)}")
 
-    async def _handle_file_write(self, params: FileWriteParams) -> CallToolResult:
-        """
-        在指定的 sandbox 容器中写入文件内容
-        """
+    async def _handle_file_write(self, **kwargs) -> CallToolResult:
+        """在指定的 sandbox 容器中写入文件内容"""
         try:
+            params = FileWriteParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.file or params.file.strip() == "":
@@ -471,11 +486,11 @@ class ManusMCPServer:
             logger.error(f"写入文件失败: {e}")
             return self._create_error_result(f"写入文件失败: {str(e)}")
 
-    async def _handle_file_read(self, params: FileReadParams) -> CallToolResult:
-        """
-        从指定的 sandbox 容器中读取文件内容
-        """
+    async def _handle_file_read(self, **kwargs) -> CallToolResult:
+        """从指定的 sandbox 容器中读取文件内容"""
         try:
+            params = FileReadParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.file or params.file.strip() == "":
@@ -496,11 +511,11 @@ class ManusMCPServer:
             logger.error(f"读取文件失败: {e}")
             return self._create_error_result(f"读取文件失败: {str(e)}")
 
-    async def _handle_file_exists(self, params: FileExistsParams) -> CallToolResult:
-        """
-        检查指定的 sandbox 容器中文件是否存在
-        """
+    async def _handle_file_exists(self, **kwargs) -> CallToolResult:
+        """检查指定的 sandbox 容器中文件是否存在"""
         try:
+            params = FileExistsParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.file or params.file.strip() == "":
@@ -513,9 +528,7 @@ class ManusMCPServer:
                 exists = result.data.get("exists", False) if isinstance(result.data, dict) else False
                 return self._create_success_result({
                     "success": True,
-                    "data": {
-                        "exists": exists
-                    },
+                    "data": {"exists": exists},
                     "message": f"文件 {params.file} {'存在' if exists else '不存在'}"
                 })
             else:
@@ -524,17 +537,16 @@ class ManusMCPServer:
             logger.error(f"检查文件失败: {e}")
             return self._create_error_result(f"检查文件失败: {str(e)}")
 
-    async def _handle_file_delete(self, params: FileDeleteParams) -> CallToolResult:
-        """
-        从指定的 sandbox 容器中删除文件
-        """
+    async def _handle_file_delete(self, **kwargs) -> CallToolResult:
+        """从指定的 sandbox 容器中删除文件"""
         try:
+            params = FileDeleteParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.file or params.file.strip() == "":
                 return self._create_error_result("缺少 file 参数，文件路径不能为空")
 
-            # 使用 shell 命令删除文件，因为 sandbox 没有 file_delete API
             command = f"rm -f '{params.file}'"
             if params.sudo:
                 command = f"sudo {command}"
@@ -553,17 +565,16 @@ class ManusMCPServer:
             logger.error(f"删除文件失败: {e}")
             return self._create_error_result(f"删除文件失败: {str(e)}")
 
-    async def _handle_file_list(self, params: FileListParams) -> CallToolResult:
-        """
-        列出指定 sandbox 容器中目录的内容
-        """
+    async def _handle_file_list(self, **kwargs) -> CallToolResult:
+        """列出指定 sandbox 容器中目录的内容"""
         try:
+            params = FileListParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.path or params.path.strip() == "":
                 return self._create_error_result("缺少 path 参数，目录路径不能为空")
 
-            # 使用 shell 命令列出目录，因为 sandbox 没有 file_list API
             command = f"ls -la '{params.path}'"
             if params.sudo:
                 command = f"sudo {command}"
@@ -572,7 +583,6 @@ class ManusMCPServer:
             result = await sandbox.exec_command(sandbox.id, "/", command)
 
             if result.success:
-                # 解析 shell 命令输出
                 command_output = result.data.get("output", "") if isinstance(result.data, dict) else ""
                 if not command_output:
                     return self._create_success_result({
@@ -581,34 +591,21 @@ class ManusMCPServer:
                         "message": "目录为空"
                     })
 
-                # 解析 ls -la 输出
                 entries = []
                 lines = command_output.strip().split('\n')
-
-                # 跳过第一行 (total xxx)
                 for line in lines[1:] if len(lines) > 1 else lines:
                     line = line.strip()
                     if not line or line.startswith('total'):
                         continue
-
                     parts = line.split()
                     if len(parts) >= 9:
                         permissions = parts[0]
                         name = parts[8]
-
-                        # 跳过 . 和 ..
                         if name in ['.', '..']:
                             continue
-
-                        # 判断类型
                         file_type = "directory" if permissions.startswith('d') else "file"
-
-                        # 获取大小
                         size = parts[4] if len(parts) > 4 else "0"
-
-                        # 获取修改时间
                         modified = " ".join(parts[5:8]) if len(parts) > 8 else ""
-
                         entries.append({
                             "name": name,
                             "type": file_type,
@@ -628,11 +625,11 @@ class ManusMCPServer:
             logger.error(f"列出目录失败: {e}")
             return self._create_error_result(f"列出目录失败: {str(e)}")
 
-    async def _handle_file_search(self, params: FileSearchParams) -> CallToolResult:
-        """
-        在指定的 sandbox 容器文件中搜索内容
-        """
+    async def _handle_file_search(self, **kwargs) -> CallToolResult:
+        """在指定的 sandbox 容器文件中搜索内容"""
         try:
+            params = FileSearchParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.file or params.file.strip() == "":
@@ -656,11 +653,11 @@ class ManusMCPServer:
             logger.error(f"搜索文件失败: {e}")
             return self._create_error_result(f"搜索文件失败: {str(e)}")
 
-    async def _handle_file_replace(self, params: FileReplaceParams) -> CallToolResult:
-        """
-        在指定的 sandbox 容器文件中替换字符串内容
-        """
+    async def _handle_file_replace(self, **kwargs) -> CallToolResult:
+        """在指定的 sandbox 容器文件中替换字符串内容"""
         try:
+            params = FileReplaceParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.file or params.file.strip() == "":
@@ -684,11 +681,11 @@ class ManusMCPServer:
             logger.error(f"替换文件失败: {e}")
             return self._create_error_result(f"替换文件失败: {str(e)}")
 
-    async def _handle_file_find(self, params: FileFindParams) -> CallToolResult:
-        """
-        在指定的 sandbox 容器目录中根据模式查找文件
-        """
+    async def _handle_file_find(self, **kwargs) -> CallToolResult:
+        """在指定的 sandbox 容器目录中根据模式查找文件"""
         try:
+            params = FileFindParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.path or params.path.strip() == "":
@@ -712,11 +709,11 @@ class ManusMCPServer:
             logger.error(f"查找文件失败: {e}")
             return self._create_error_result(f"查找文件失败: {str(e)}")
 
-    async def _handle_shell_view(self, params: ShellViewParams) -> CallToolResult:
-        """
-        查看指定 sandbox 容器 shell 会话的输出内容
-        """
+    async def _handle_shell_view(self, **kwargs) -> CallToolResult:
+        """查看指定 sandbox 容器 shell 会话的输出内容"""
         try:
+            params = ShellViewParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.session_id:
@@ -737,11 +734,11 @@ class ManusMCPServer:
             logger.error(f"查看 shell 失败: {e}")
             return self._create_error_result(f"查看 shell 失败: {str(e)}")
 
-    async def _handle_shell_wait(self, params: ShellWaitParams) -> CallToolResult:
-        """
-        等待指定 sandbox 容器 shell 会话中的进程执行完成
-        """
+    async def _handle_shell_wait(self, **kwargs) -> CallToolResult:
+        """等待指定 sandbox 容器 shell 会话中的进程执行完成"""
         try:
+            params = ShellWaitParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.session_id:
@@ -762,11 +759,11 @@ class ManusMCPServer:
             logger.error(f"等待进程失败: {e}")
             return self._create_error_result(f"等待进程失败: {str(e)}")
 
-    async def _handle_shell_write(self, params: ShellWriteParams) -> CallToolResult:
-        """
-        向指定 sandbox 容器 shell 会话的进程写入输入内容
-        """
+    async def _handle_shell_write(self, **kwargs) -> CallToolResult:
+        """向指定 sandbox 容器 shell 会话的进程写入输入内容"""
         try:
+            params = ShellWriteParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.session_id:
@@ -787,11 +784,11 @@ class ManusMCPServer:
             logger.error(f"写入进程失败: {e}")
             return self._create_error_result(f"写入进程失败: {str(e)}")
 
-    async def _handle_shell_kill(self, params: ShellKillParams) -> CallToolResult:
-        """
-        终止指定 sandbox 容器 shell 会话中的进程
-        """
+    async def _handle_shell_kill(self, **kwargs) -> CallToolResult:
+        """终止指定 sandbox 容器 shell 会话中的进程"""
         try:
+            params = ShellKillParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.session_id:
@@ -812,11 +809,11 @@ class ManusMCPServer:
             logger.error(f"终止进程失败: {e}")
             return self._create_error_result(f"终止进程失败: {str(e)}")
 
-    async def _handle_supervisor_status(self, params: SupervisorStatusParams) -> CallToolResult:
-        """
-        获取指定 sandbox 容器中所有服务的状态信息
-        """
+    async def _handle_supervisor_status(self, **kwargs) -> CallToolResult:
+        """获取指定 sandbox 容器中所有服务的状态信息"""
         try:
+            params = SupervisorStatusParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
@@ -835,11 +832,11 @@ class ManusMCPServer:
             logger.error(f"获取服务状态失败: {e}")
             return self._create_error_result(f"获取服务状态失败: {str(e)}")
 
-    async def _handle_supervisor_restart(self, params: SupervisorRestartParams) -> CallToolResult:
-        """
-        重启指定 sandbox 容器中的所有服务
-        """
+    async def _handle_supervisor_restart(self, **kwargs) -> CallToolResult:
+        """重启指定 sandbox 容器中的所有服务"""
         try:
+            params = SupervisorRestartParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
@@ -858,11 +855,11 @@ class ManusMCPServer:
             logger.error(f"重启服务失败: {e}")
             return self._create_error_result(f"重启服务失败: {str(e)}")
 
-    async def _handle_browser_navigate(self, params: BrowserNavigateParams) -> CallToolResult:
-        """
-        在 sandbox 容器的浏览器中导航到指定网址
-        """
+    async def _handle_browser_navigate(self, **kwargs) -> CallToolResult:
+        """在 sandbox 容器的浏览器中导航到指定网址"""
         try:
+            params = BrowserNavigateParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.url:
@@ -877,11 +874,11 @@ class ManusMCPServer:
             logger.error(f"浏览器导航失败: {e}")
             return self._create_error_result(f"浏览器导航失败: {str(e)}")
 
-    async def _handle_browser_view(self, params: BrowserViewParams) -> CallToolResult:
-        """
-        查看 sandbox 容器浏览器当前页面的内容和交互元素
-        """
+    async def _handle_browser_view(self, **kwargs) -> CallToolResult:
+        """查看 sandbox 容器浏览器当前页面的内容和交互元素"""
         try:
+            params = BrowserViewParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
@@ -894,11 +891,11 @@ class ManusMCPServer:
             logger.error(f"查看浏览器页面失败: {e}")
             return self._create_error_result(f"查看浏览器页面失败: {str(e)}")
 
-    async def _handle_browser_click(self, params: BrowserClickParams) -> CallToolResult:
-        """
-        在 sandbox 容器浏览器中点击页面元素或指定坐标
-        """
+    async def _handle_browser_click(self, **kwargs) -> CallToolResult:
+        """在 sandbox 容器浏览器中点击页面元素或指定坐标"""
         try:
+            params = BrowserClickParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
@@ -917,11 +914,11 @@ class ManusMCPServer:
             logger.error(f"浏览器点击失败: {e}")
             return self._create_error_result(f"浏览器点击失败: {str(e)}")
 
-    async def _handle_browser_input(self, params: BrowserInputParams) -> CallToolResult:
-        """
-        在 sandbox 容器浏览器中向页面元素输入文本
-        """
+    async def _handle_browser_input(self, **kwargs) -> CallToolResult:
+        """在 sandbox 容器浏览器中向页面元素输入文本"""
         try:
+            params = BrowserInputParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
@@ -934,11 +931,11 @@ class ManusMCPServer:
             logger.error(f"浏览器输入失败: {e}")
             return self._create_error_result(f"浏览器输入失败: {str(e)}")
 
-    async def _handle_browser_screenshot(self, params: BrowserScreenshotParams) -> CallToolResult:
-        """
-        对 sandbox 容器浏览器当前页面进行截图
-        """
+    async def _handle_browser_screenshot(self, **kwargs) -> CallToolResult:
+        """对 sandbox 容器浏览器当前页面进行截图"""
         try:
+            params = BrowserScreenshotParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
@@ -951,11 +948,11 @@ class ManusMCPServer:
             logger.error(f"浏览器截图失败: {e}")
             return self._create_error_result(f"浏览器截图失败: {str(e)}")
 
-    async def _handle_browser_scroll(self, params: BrowserScrollParams) -> CallToolResult:
-        """
-        在 sandbox 容器浏览器中滚动页面
-        """
+    async def _handle_browser_scroll(self, **kwargs) -> CallToolResult:
+        """在 sandbox 容器浏览器中滚动页面"""
         try:
+            params = BrowserScrollParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
@@ -968,11 +965,11 @@ class ManusMCPServer:
             logger.error(f"浏览器滚动失败: {e}")
             return self._create_error_result(f"浏览器滚动失败: {str(e)}")
 
-    async def _handle_browser_console_exec(self, params: BrowserConsoleExecParams) -> CallToolResult:
-        """
-        在 sandbox 容器浏览器中执行 JavaScript 代码
-        """
+    async def _handle_browser_console_exec(self, **kwargs) -> CallToolResult:
+        """在 sandbox 容器浏览器中执行 JavaScript 代码"""
         try:
+            params = BrowserConsoleExecParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
             if not params.script:
@@ -987,11 +984,11 @@ class ManusMCPServer:
             logger.error(f"执行 JavaScript 失败: {e}")
             return self._create_error_result(f"执行 JavaScript 失败: {str(e)}")
 
-    async def _handle_browser_console_view(self, params: BrowserConsoleViewParams) -> CallToolResult:
-        """
-        查看 sandbox 容器浏览器的控制台输出
-        """
+    async def _handle_browser_console_view(self, **kwargs) -> CallToolResult:
+        """查看 sandbox 容器浏览器的控制台输出"""
         try:
+            params = BrowserConsoleViewParams(**kwargs)
+            
             if not params.sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
