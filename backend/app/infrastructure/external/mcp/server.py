@@ -465,22 +465,26 @@ class ManusMCPServer:
             logger.error(f"创建 sandbox 失败: {e}")
             return self._create_error_result(f"创建 sandbox 失败: {str(e)}")
 
-    async def _handle_exec_command(self, **kwargs) -> CallToolResult:
+    async def _handle_exec_command(
+        self,
+        sandbox_id: str,
+        command: str,
+        exec_dir: str = "/home/ubuntu",
+        sudo: bool = False
+    ) -> CallToolResult:
         """在指定的 sandbox 容器中执行 shell 命令"""
         try:
-            params = ExecCommandParams(**kwargs)
-            
-            if not params.sandbox_id or params.sandbox_id.strip() == "":
+            if not sandbox_id or sandbox_id.strip() == "":
                 return self._create_error_result("缺少 sandbox_id 参数，sandbox ID 不能为空")
-            if not params.command or params.command.strip() == "":
+            if not command or command.strip() == "":
                 return self._create_error_result("缺少 command 参数，命令不能为空")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            if params.sudo:
-                actual_command = f"sudo sh -c {json.dumps(params.command)}"
+            sandbox = await DockerSandbox.get(sandbox_id)
+            if sudo:
+                actual_command = f"sudo sh -c {json.dumps(command)}"
             else:
-                actual_command = params.command
-            result = await sandbox.exec_command(sandbox.id, params.exec_dir, actual_command)
+                actual_command = command
+            result = await sandbox.exec_command(sandbox.id, exec_dir, actual_command)
 
             if result.success:
                 return self._create_success_result({
@@ -494,24 +498,29 @@ class ManusMCPServer:
             logger.error(f"执行命令失败: {e}")
             return self._create_error_result(f"执行命令失败: {str(e)}")
 
-    async def _handle_file_write(self, **kwargs) -> CallToolResult:
+    async def _handle_file_write(
+        self,
+        sandbox_id: str,
+        file: str,
+        content: str,
+        append: bool = False,
+        sudo: bool = False
+    ) -> CallToolResult:
         """在指定的 sandbox 容器中写入文件内容"""
         try:
-            params = FileWriteParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.file or params.file.strip() == "":
+            if not file or file.strip() == "":
                 return self._create_error_result("缺少 file 参数，文件路径不能为空")
-            if params.content is None:
+            if content is None:
                 return self._create_error_result("缺少 content 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             result = await sandbox.file_write(
-                file=params.file,
-                content=params.content,
-                append=params.append,
-                sudo=params.sudo
+                file=file,
+                content=content,
+                append=append,
+                sudo=sudo
             )
 
             if result.success:
@@ -526,18 +535,21 @@ class ManusMCPServer:
             logger.error(f"写入文件失败: {e}")
             return self._create_error_result(f"写入文件失败: {str(e)}")
 
-    async def _handle_file_read(self, **kwargs) -> CallToolResult:
+    async def _handle_file_read(
+        self,
+        sandbox_id: str,
+        file: str,
+        sudo: bool = False
+    ) -> CallToolResult:
         """从指定的 sandbox 容器中读取文件内容"""
         try:
-            params = FileReadParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.file or params.file.strip() == "":
+            if not file or file.strip() == "":
                 return self._create_error_result("缺少 file 参数，文件路径不能为空")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.file_read(file=params.file, sudo=params.sudo)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.file_read(file=file, sudo=sudo)
 
             if result.success:
                 return self._create_success_result({
@@ -551,25 +563,28 @@ class ManusMCPServer:
             logger.error(f"读取文件失败: {e}")
             return self._create_error_result(f"读取文件失败: {str(e)}")
 
-    async def _handle_file_exists(self, **kwargs) -> CallToolResult:
+    async def _handle_file_exists(
+        self,
+        sandbox_id: str,
+        file: str,
+        sudo: bool = False
+    ) -> CallToolResult:
         """检查指定的 sandbox 容器中文件是否存在"""
         try:
-            params = FileExistsParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.file or params.file.strip() == "":
+            if not file or file.strip() == "":
                 return self._create_error_result("缺少 file 参数，文件路径不能为空")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.file_exists(file=params.file)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.file_exists(file=file)
 
             if result.success:
                 exists = result.data.get("exists", False) if isinstance(result.data, dict) else False
                 return self._create_success_result({
                     "success": True,
                     "data": {"exists": exists},
-                    "message": f"文件 {params.file} {'存在' if exists else '不存在'}"
+                    "message": f"文件 {file} {'存在' if exists else '不存在'}"
                 })
             else:
                 return self._create_error_result(result.message or "检查文件失败")
@@ -577,21 +592,24 @@ class ManusMCPServer:
             logger.error(f"检查文件失败: {e}")
             return self._create_error_result(f"检查文件失败: {str(e)}")
 
-    async def _handle_file_delete(self, **kwargs) -> CallToolResult:
+    async def _handle_file_delete(
+        self,
+        sandbox_id: str,
+        file: str,
+        sudo: bool = False
+    ) -> CallToolResult:
         """从指定的 sandbox 容器中删除文件"""
         try:
-            params = FileDeleteParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.file or params.file.strip() == "":
+            if not file or file.strip() == "":
                 return self._create_error_result("缺少 file 参数，文件路径不能为空")
 
-            command = f"rm -f '{params.file}'"
-            if params.sudo:
+            command = f"rm -f '{file}'"
+            if sudo:
                 command = f"sudo {command}"
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             result = await sandbox.exec_command(sandbox.id, "/", command)
 
             if result.success:
@@ -605,21 +623,24 @@ class ManusMCPServer:
             logger.error(f"删除文件失败: {e}")
             return self._create_error_result(f"删除文件失败: {str(e)}")
 
-    async def _handle_file_list(self, **kwargs) -> CallToolResult:
+    async def _handle_file_list(
+        self,
+        sandbox_id: str,
+        path: str,
+        sudo: bool = False
+    ) -> CallToolResult:
         """列出指定 sandbox 容器中目录的内容"""
         try:
-            params = FileListParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.path or params.path.strip() == "":
+            if not path or path.strip() == "":
                 return self._create_error_result("缺少 path 参数，目录路径不能为空")
 
-            command = f"ls -la '{params.path}'"
-            if params.sudo:
+            command = f"ls -la '{path}'"
+            if sudo:
                 command = f"sudo {command}"
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             result = await sandbox.exec_command(sandbox.id, "/", command)
 
             if result.success:
@@ -665,20 +686,24 @@ class ManusMCPServer:
             logger.error(f"列出目录失败: {e}")
             return self._create_error_result(f"列出目录失败: {str(e)}")
 
-    async def _handle_file_search(self, **kwargs) -> CallToolResult:
+    async def _handle_file_search(
+        self,
+        sandbox_id: str,
+        file: str,
+        regex: str,
+        sudo: bool = False
+    ) -> CallToolResult:
         """在指定的 sandbox 容器文件中搜索内容"""
         try:
-            params = FileSearchParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.file or params.file.strip() == "":
+            if not file or file.strip() == "":
                 return self._create_error_result("缺少 file 参数，文件路径不能为空")
-            if not params.regex or params.regex.strip() == "":
+            if not regex or regex.strip() == "":
                 return self._create_error_result("缺少 regex 参数，搜索模式不能为空")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.search_in_file(params.file, params.regex, params.sudo)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.search_in_file(file, regex, sudo)
 
             if result.success:
                 matches = result.data.get("matches", []) if isinstance(result.data, dict) else []
@@ -693,20 +718,25 @@ class ManusMCPServer:
             logger.error(f"搜索文件失败: {e}")
             return self._create_error_result(f"搜索文件失败: {str(e)}")
 
-    async def _handle_file_replace(self, **kwargs) -> CallToolResult:
+    async def _handle_file_replace(
+        self,
+        sandbox_id: str,
+        file: str,
+        old_str: str,
+        new_str: str,
+        sudo: bool = False
+    ) -> CallToolResult:
         """在指定的 sandbox 容器文件中替换字符串内容"""
         try:
-            params = FileReplaceParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.file or params.file.strip() == "":
+            if not file or file.strip() == "":
                 return self._create_error_result("缺少 file 参数，文件路径不能为空")
-            if params.old_str is None or params.old_str == "":
+            if old_str is None or old_str == "":
                 return self._create_error_result("缺少 old_str 参数，被替换字符串不能为空")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.str_replace_in_file(params.file, params.old_str, params.new_str, params.sudo)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.str_replace_in_file(file, old_str, new_str, sudo)
 
             if result.success:
                 replaced_count = result.data.get("replaced_count", 0) if isinstance(result.data, dict) else 0
@@ -721,20 +751,23 @@ class ManusMCPServer:
             logger.error(f"替换文件失败: {e}")
             return self._create_error_result(f"替换文件失败: {str(e)}")
 
-    async def _handle_file_find(self, **kwargs) -> CallToolResult:
+    async def _handle_file_find(
+        self,
+        sandbox_id: str,
+        path: str,
+        glob_pattern: str
+    ) -> CallToolResult:
         """在指定的 sandbox 容器目录中根据模式查找文件"""
         try:
-            params = FileFindParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.path or params.path.strip() == "":
+            if not path or path.strip() == "":
                 return self._create_error_result("缺少 path 参数，目录路径不能为空")
-            if not params.glob_pattern or params.glob_pattern.strip() == "":
+            if not glob_pattern or glob_pattern.strip() == "":
                 return self._create_error_result("缺少 glob_pattern 参数，文件模式不能为空")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.file_find(params.path, params.glob_pattern)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.file_find(path, glob_pattern)
 
             if result.success:
                 files = result.data.get("files", []) if isinstance(result.data, dict) else []
@@ -749,18 +782,21 @@ class ManusMCPServer:
             logger.error(f"查找文件失败: {e}")
             return self._create_error_result(f"查找文件失败: {str(e)}")
 
-    async def _handle_shell_view(self, **kwargs) -> CallToolResult:
+    async def _handle_shell_view(
+        self,
+        sandbox_id: str,
+        session_id: str,
+        console: bool = False
+    ) -> CallToolResult:
         """查看指定 sandbox 容器 shell 会话的输出内容"""
         try:
-            params = ShellViewParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.session_id:
+            if not session_id:
                 return self._create_error_result("缺少 session_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.view_shell(params.session_id, params.console)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.view_shell(session_id, console)
 
             if result.success:
                 return self._create_success_result({
@@ -774,18 +810,21 @@ class ManusMCPServer:
             logger.error(f"查看 shell 失败: {e}")
             return self._create_error_result(f"查看 shell 失败: {str(e)}")
 
-    async def _handle_shell_wait(self, **kwargs) -> CallToolResult:
+    async def _handle_shell_wait(
+        self,
+        sandbox_id: str,
+        session_id: str,
+        seconds: Optional[int] = None
+    ) -> CallToolResult:
         """等待指定 sandbox 容器 shell 会话中的进程执行完成"""
         try:
-            params = ShellWaitParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.session_id:
+            if not session_id:
                 return self._create_error_result("缺少 session_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.wait_for_process(params.session_id, params.seconds)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.wait_for_process(session_id, seconds)
 
             if result.success:
                 return self._create_success_result({
@@ -799,18 +838,22 @@ class ManusMCPServer:
             logger.error(f"等待进程失败: {e}")
             return self._create_error_result(f"等待进程失败: {str(e)}")
 
-    async def _handle_shell_write(self, **kwargs) -> CallToolResult:
+    async def _handle_shell_write(
+        self,
+        sandbox_id: str,
+        session_id: str,
+        input: str,
+        press_enter: bool = True
+    ) -> CallToolResult:
         """向指定 sandbox 容器 shell 会话的进程写入输入内容"""
         try:
-            params = ShellWriteParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.session_id:
+            if not session_id:
                 return self._create_error_result("缺少 session_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.write_to_process(params.session_id, params.input, params.press_enter)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.write_to_process(session_id, input, press_enter)
 
             if result.success:
                 return self._create_success_result({
@@ -824,18 +867,20 @@ class ManusMCPServer:
             logger.error(f"写入进程失败: {e}")
             return self._create_error_result(f"写入进程失败: {str(e)}")
 
-    async def _handle_shell_kill(self, **kwargs) -> CallToolResult:
+    async def _handle_shell_kill(
+        self,
+        sandbox_id: str,
+        session_id: str
+    ) -> CallToolResult:
         """终止指定 sandbox 容器 shell 会话中的进程"""
         try:
-            params = ShellKillParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.session_id:
+            if not session_id:
                 return self._create_error_result("缺少 session_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
-            result = await sandbox.kill_process(params.session_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
+            result = await sandbox.kill_process(session_id)
 
             if result.success:
                 return self._create_success_result({
@@ -849,15 +894,16 @@ class ManusMCPServer:
             logger.error(f"终止进程失败: {e}")
             return self._create_error_result(f"终止进程失败: {str(e)}")
 
-    async def _handle_supervisor_status(self, **kwargs) -> CallToolResult:
+    async def _handle_supervisor_status(
+        self,
+        sandbox_id: str
+    ) -> CallToolResult:
         """获取指定 sandbox 容器中所有服务的状态信息"""
         try:
-            params = SupervisorStatusParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             result = await sandbox.get_supervisor_status()
 
             if result.success:
@@ -872,15 +918,16 @@ class ManusMCPServer:
             logger.error(f"获取服务状态失败: {e}")
             return self._create_error_result(f"获取服务状态失败: {str(e)}")
 
-    async def _handle_supervisor_restart(self, **kwargs) -> CallToolResult:
+    async def _handle_supervisor_restart(
+        self,
+        sandbox_id: str
+    ) -> CallToolResult:
         """重启指定 sandbox 容器中的所有服务"""
         try:
-            params = SupervisorRestartParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             result = await sandbox.restart_all_services()
 
             if result.success:
@@ -895,34 +942,38 @@ class ManusMCPServer:
             logger.error(f"重启服务失败: {e}")
             return self._create_error_result(f"重启服务失败: {str(e)}")
 
-    async def _handle_browser_navigate(self, **kwargs) -> CallToolResult:
+    async def _handle_browser_navigate(
+        self,
+        sandbox_id: str,
+        url: str,
+        timeout_seconds: int = 15
+    ) -> CallToolResult:
         """在 sandbox 容器的浏览器中导航到指定网址"""
         try:
-            params = BrowserNavigateParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.url:
+            if not url:
                 return self._create_error_result("缺少 url 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             browser = await sandbox.get_browser()
-            result = await browser.navigate(params.url, params.timeout_seconds)
+            result = await browser.navigate(url, timeout_seconds)
 
             return self._create_success_result(result)
         except Exception as e:
             logger.error(f"浏览器导航失败: {e}")
             return self._create_error_result(f"浏览器导航失败: {str(e)}")
 
-    async def _handle_browser_view(self, **kwargs) -> CallToolResult:
+    async def _handle_browser_view(
+        self,
+        sandbox_id: str
+    ) -> CallToolResult:
         """查看 sandbox 容器浏览器当前页面的内容和交互元素"""
         try:
-            params = BrowserViewParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             browser = await sandbox.get_browser()
             result = await browser.view()
 
@@ -931,21 +982,25 @@ class ManusMCPServer:
             logger.error(f"查看浏览器页面失败: {e}")
             return self._create_error_result(f"查看浏览器页面失败: {str(e)}")
 
-    async def _handle_browser_click(self, **kwargs) -> CallToolResult:
+    async def _handle_browser_click(
+        self,
+        sandbox_id: str,
+        index: Optional[int] = None,
+        x: Optional[int] = None,
+        y: Optional[int] = None
+    ) -> CallToolResult:
         """在 sandbox 容器浏览器中点击页面元素或指定坐标"""
         try:
-            params = BrowserClickParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             browser = await sandbox.get_browser()
 
-            if params.index is not None:
-                result = await browser.click(index=params.index)
-            elif params.x is not None and params.y is not None:
-                result = await browser.click(x=params.x, y=params.y)
+            if index is not None:
+                result = await browser.click(index=index)
+            elif x is not None and y is not None:
+                result = await browser.click(x=x, y=y)
             else:
                 return self._create_error_result("必须提供 index 或 x,y 坐标参数")
 
@@ -954,32 +1009,37 @@ class ManusMCPServer:
             logger.error(f"浏览器点击失败: {e}")
             return self._create_error_result(f"浏览器点击失败: {str(e)}")
 
-    async def _handle_browser_input(self, **kwargs) -> CallToolResult:
+    async def _handle_browser_input(
+        self,
+        sandbox_id: str,
+        index: int,
+        content: str,
+        submit: bool = False
+    ) -> CallToolResult:
         """在 sandbox 容器浏览器中向页面元素输入文本"""
         try:
-            params = BrowserInputParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             browser = await sandbox.get_browser()
-            result = await browser.input(params.index, params.content, params.submit)
+            result = await browser.input(index, content, submit)
 
             return self._create_success_result(result)
         except Exception as e:
             logger.error(f"浏览器输入失败: {e}")
             return self._create_error_result(f"浏览器输入失败: {str(e)}")
 
-    async def _handle_browser_screenshot(self, **kwargs) -> CallToolResult:
+    async def _handle_browser_screenshot(
+        self,
+        sandbox_id: str
+    ) -> CallToolResult:
         """对 sandbox 容器浏览器当前页面进行截图"""
         try:
-            params = BrowserScreenshotParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             browser = await sandbox.get_browser()
             result = await browser.screenshot()
 
@@ -988,51 +1048,57 @@ class ManusMCPServer:
             logger.error(f"浏览器截图失败: {e}")
             return self._create_error_result(f"浏览器截图失败: {str(e)}")
 
-    async def _handle_browser_scroll(self, **kwargs) -> CallToolResult:
+    async def _handle_browser_scroll(
+        self,
+        sandbox_id: str,
+        direction: str = "down",
+        distance: int = 300
+    ) -> CallToolResult:
         """在 sandbox 容器浏览器中滚动页面"""
         try:
-            params = BrowserScrollParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             browser = await sandbox.get_browser()
-            result = await browser.scroll(params.direction, params.distance)
+            result = await browser.scroll(direction, distance)
 
             return self._create_success_result(result)
         except Exception as e:
             logger.error(f"浏览器滚动失败: {e}")
             return self._create_error_result(f"浏览器滚动失败: {str(e)}")
 
-    async def _handle_browser_console_exec(self, **kwargs) -> CallToolResult:
+    async def _handle_browser_console_exec(
+        self,
+        sandbox_id: str,
+        script: str
+    ) -> CallToolResult:
         """在 sandbox 容器浏览器中执行 JavaScript 代码"""
         try:
-            params = BrowserConsoleExecParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
-            if not params.script:
+            if not script:
                 return self._create_error_result("缺少 script 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             browser = await sandbox.get_browser()
-            result = await browser.console_exec(params.script)
+            result = await browser.console_exec(script)
 
             return self._create_success_result(result)
         except Exception as e:
             logger.error(f"执行 JavaScript 失败: {e}")
             return self._create_error_result(f"执行 JavaScript 失败: {str(e)}")
 
-    async def _handle_browser_console_view(self, **kwargs) -> CallToolResult:
+    async def _handle_browser_console_view(
+        self,
+        sandbox_id: str
+    ) -> CallToolResult:
         """查看 sandbox 容器浏览器的控制台输出"""
         try:
-            params = BrowserConsoleViewParams(**kwargs)
-            
-            if not params.sandbox_id:
+            if not sandbox_id:
                 return self._create_error_result("缺少 sandbox_id 参数")
 
-            sandbox = await DockerSandbox.get(params.sandbox_id)
+            sandbox = await DockerSandbox.get(sandbox_id)
             browser = await sandbox.get_browser()
             result = await browser.console_view()
 
