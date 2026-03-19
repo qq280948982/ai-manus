@@ -1,6 +1,6 @@
 # AI Manus
 
-English | [中文](README_zh.md) | [Official Site](https://app.ai-manus.com) | [Documents](https://docs.ai-manus.com/#/en/)
+English | [中文](README_zh.md) | [Official Site](https://ai-manus.com) | [Documents](https://docs.ai-manus.com/#/en/)
 
 [![GitHub stars](https://img.shields.io/github/stars/simpleyyt/ai-manus?style=social)](https://github.com/simpleyyt/ai-manus/stargazers)
 &ensp;
@@ -15,6 +15,8 @@ Enjoy your own agent with AI Manus!
 ❤️ Like AI Manus? Give it a star 🌟 or [Sponsor](docs/sponsor.md) to support the development!
 
 🚀 [Try a Demo](https://app.ai-manus.com)
+
+📝 [Blog: Rebuild Manus with WebUI and Sandbox](https://simpleyyt.com/2026/03/07/rebuild-manus-with-webui-and-sandbox/)
 
 ## Demos
 
@@ -77,7 +79,7 @@ This project primarily relies on Docker for development and deployment, requirin
 - Docker Compose
 
 Model capability requirements:
-- Compatible with OpenAI interface
+- Supports LangChain chat model providers (default `openai`)
 - Support for FunctionCall
 - Support for Json Format output
 
@@ -119,6 +121,8 @@ services:
       - API_KEY=sk-xxxx
       # LLM model name
       - MODEL_NAME=gpt-4o
+      # LLM model provider
+      - MODEL_PROVIDER=openai
       # LLM temperature parameter, controls randomness
       - TEMPERATURE=0.7
       # Maximum tokens for LLM response
@@ -278,6 +282,7 @@ API_BASE=http://mockserver:8090/v1
 
 # Model configuration
 MODEL_NAME=deepseek-chat
+MODEL_PROVIDER=openai
 TEMPERATURE=0.7
 MAX_TOKENS=2000
 
@@ -363,7 +368,7 @@ All services will run in reload mode, and code changes will be automatically rel
 
 > *Note: In Debug mode, only one sandbox will be started globally*
 
-2. When dependencies change (requirements.txt or package.json), clean up and rebuild:
+2. When dependencies change (`backend/pyproject.toml` or `frontend/package.json`), clean up and rebuild:
 ```bash
 # Clean up all related resources
 ./dev.sh down -v

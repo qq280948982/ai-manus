@@ -1,15 +1,35 @@
+import os
+import json
+import logging
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_extra_headers() -> dict | None:
+    raw = os.environ.get("EXTRA_HEADERS")
+    if not raw:
+        return None
+    try:
+        headers = json.loads(raw)
+        if isinstance(headers, dict):
+            return headers
+        logger.warning("EXTRA_HEADERS is not a JSON object, ignoring")
+    except json.JSONDecodeError:
+        logger.warning("EXTRA_HEADERS is not valid JSON, ignoring")
+    return None
 
 
 class Settings(BaseSettings):
     
     # Model provider configuration
     api_key: str | None = None
-    api_base: str = "https://api.deepseek.com/v1"
+    api_base: str | None = None
     
     # Model configuration
-    model_name: str = "deepseek-chat"
+    model_name: str = "gpt-4o"
+    model_provider: str = "openai"
     temperature: float = 0.7
     max_tokens: int = 2000
     
@@ -35,11 +55,17 @@ class Settings(BaseSettings):
     sandbox_https_proxy: str | None = None
     sandbox_http_proxy: str | None = None
     sandbox_no_proxy: str | None = None
+
+    # Browser engine configuration
+    browser_engine: str = "playwright"  # "playwright" or "browser_use"
     
     # Search engine configuration
-    search_provider: str | None = "bing"  # "baidu", "google", "bing"
+    search_provider: str | None = "bing_web"  # "baidu", "baidu_web", "google", "bing", "bing_web", "tavily"
+    baidu_search_api_key: str | None = None
+    bing_search_api_key: str | None = None
     google_search_api_key: str | None = None
     google_search_engine_id: str | None = None
+    tavily_api_key: str | None = None
     
     # Auth configuration
     auth_provider: str = "password"  # "password", "none", "local"
@@ -62,6 +88,9 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 7
     
+    # Extra headers for LLM requests (parsed from EXTRA_HEADERS env var, JSON)
+    extra_headers: dict | None = None
+    
     # MCP configuration
     mcp_config_path: str = "/etc/mcp.json"
     
@@ -80,6 +109,9 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """Get application settings"""
+    if not os.environ.get("OPENAI_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = os.getenv("API_KEY")
     settings = Settings()
+    settings.extra_headers = _parse_extra_headers()
     settings.validate()
     return settings 

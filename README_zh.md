@@ -1,6 +1,6 @@
 # AI Manus
 
-[English](README.md) | 中文 | [官方网站](https://app.ai-manus.com) | [文档](https://docs.ai-manus.com)
+[English](README.md) | 中文 | [官方网站](https://ai-manus.com) | [文档](https://docs.ai-manus.com)
 
 [![GitHub stars](https://img.shields.io/github/stars/simpleyyt/ai-manus?style=social)](https://github.com/simpleyyt/ai-manus/stargazers)
 &ensp;
@@ -15,6 +15,8 @@ AI Manus 是一个通用的 AI Agent 系统，支持在沙盒环境中运行各�
 ❤️ 喜欢 AI Manus? 点亮小星星 🌟 或 [赞助开发者](docs/sponsor.md)! ❤️
 
 🚀 [Demo 演示](https://app.ai-manus.com)
+
+📝 [博客：我也复刻了一个 Manus，带高仿 WebUI 和沙盒](https://simpleyyt.com/2026/03/07/rebuild-manus-with-webui-and-sandbox/)
 
 ## 示例
 
@@ -58,7 +60,7 @@ https://github.com/user-attachments/assets/5cb2240b-0984-4db0-8818-a24f81624b04
 - Docker Compose
 
 模型能力要求：
-- 兼容OpenAI接口
+- 支持 LangChain Chat Model（默认 `openai` 提供商）
 - 支持FunctionCall
 - 支持Json Format输出
 
@@ -101,6 +103,8 @@ services:
       - API_KEY=sk-xxxx
       # LLM model name
       - MODEL_NAME=gpt-4o
+      # LLM model provider
+      - MODEL_PROVIDER=openai
       # LLM temperature parameter, controls randomness
       - TEMPERATURE=0.7
       # Maximum tokens for LLM response
@@ -279,6 +283,7 @@ API_BASE=http://mockserver:8090/v1
 
 # Model configuration
 MODEL_NAME=deepseek-chat
+MODEL_PROVIDER=openai
 TEMPERATURE=0.7
 MAX_TOKENS=2000
 
@@ -364,7 +369,7 @@ LOG_LEVEL=INFO
 
 > *注意：在 Debug 模式全局只会启动一个沙盒*
 
-2. 当依赖变化时（requirements.txt或package.json），清理并重新构建：
+2. 当依赖变化时（`backend/pyproject.toml` 或 `frontend/package.json`），清理并重新构建：
 ```bash
 # 清理所有相关资源
 ./dev.sh down -v

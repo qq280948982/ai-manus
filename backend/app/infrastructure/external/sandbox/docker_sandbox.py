@@ -11,8 +11,8 @@ from app.core.config import get_settings
 from app.domain.models.tool_result import ToolResult
 from app.domain.external.sandbox import Sandbox
 from app.infrastructure.external.browser.playwright_browser import PlaywrightBrowser
+from app.infrastructure.external.browser.browser_use_browser import BrowserUseBrowser
 from app.domain.external.browser import Browser
-from app.domain.external.llm import LLM
 
 logger = logging.getLogger(__name__)
 
@@ -47,27 +47,22 @@ class DockerSandbox(Sandbox):
     def _get_container_ip(container) -> str:
         """Get the IP address of a container"""
         network_settings = container.attrs['NetworkSettings']
-        
-        # 从 Networks 中获取 IP，避免 KeyError
-        ip_address = None
-        for network_name, network_config in network_settings['Networks'].items():
-            ip_address = network_config.get('IPAddress')
-            if ip_address:
-                break
-        
-        # 兼容旧版本 Docker
-        if not ip_address and 'IPAddress' in network_settings:
-            ip_address = network_settings['IPAddress']
-            
-            # If default network has no IP, try to get IP from other networks
-            if not ip_address and 'Networks' in network_settings:
-                networks = network_settings['Networks']
-                # Try to get IP from first available network
-                for network_name, network_config in networks.items():
-                    if 'IPAddress' in network_config and network_config['IPAddress']:
-                        ip_address = network_config['IPAddress']
-                        break            
-        return ip_address        
+
+        # Use .get() to avoid KeyError on newer Docker versions (e.g. Debian 13)
+        # where the top-level IPAddress field may be absent when the container
+        # is attached to a user-defined network instead of the default bridge.
+        ip_address = network_settings.get('IPAddress', '')
+
+        # Fall back to per-network IP when the top-level field is empty
+        if not ip_address:
+            networks = network_settings.get('Networks', {})
+            for network_config in networks.values():
+                candidate = network_config.get('IPAddress', '')
+                if candidate:
+                    ip_address = candidate
+                    break
+
+        return ip_address
 
     @staticmethod
     def _create_task() -> 'DockerSandbox':
@@ -621,18 +616,19 @@ class DockerSandbox(Sandbox):
     
     async def get_browser(self) -> Browser:
         """Get browser instance
-        
-        Args:
-            llm: LLM instance used for browser automation
-            
-        Returns:
-            Browser: Returns a configured PlaywrightBrowser instance
-                    connected using the sandbox's CDP URL
+
+        Returns a browser implementation connected to the sandbox's Chrome via CDP.
+        The concrete implementation is selected by the BROWSER_ENGINE setting:
+          - "playwright"   → PlaywrightBrowser  (default)
+          - "browser_use"  → BrowserUseBrowser
         """
-        # Cache browser instance to avoid creating new tabs on each call
-        if self._browser is None:
-            self._browser = PlaywrightBrowser(self.cdp_url)
-        return self._browser
+        settings = get_settings()
+        engine = (settings.browser_engine or "playwright").lower().strip()
+        if engine == "browser_use":
+            logger.info("Using BrowserUseBrowser engine for CDP URL: %s", self.cdp_url)
+            return BrowserUseBrowser(self.cdp_url)
+        logger.info("Using PlaywrightBrowser engine for CDP URL: %s", self.cdp_url)
+        return PlaywrightBrowser(self.cdp_url)
 
     @staticmethod
     @alru_cache(maxsize=128, typed=True)

@@ -7,12 +7,13 @@
 | 配置项 | 默认值 | 是否必需 | 说明 |
 |--------|--------|----------|------|
 | `API_KEY` | - | 是 | LLM 模型的 API 密钥 |
-| `API_BASE` | `http://mockserver:8090/v1` | 是 | API 基础地址，用于指定模型服务的端点 |
+| `API_BASE` | `http://mockserver:8090/v1` | 否 | API 基础地址，用于指定模型服务的端点 |
 
 ### 模型配置
 
 | 配置项 | 默认值 | 是否必需 | 说明 |
 |--------|--------|----------|------|
+| `MODEL_PROVIDER` | `openai` | 否 | 模型提供商（如 `openai`、`anthropic`、`google_genai`、`ollama`） |
 | `MODEL_NAME` | `deepseek-chat` | 是 | 要使用的模型名称 |
 | `TEMPERATURE` | `0.7` | 否 | 模型响应的随机性程度，范围 0-1 |
 | `MAX_TOKENS` | `2000` | 否 | 模型响应的最大 token 数量 |
@@ -57,7 +58,27 @@
 
 | 配置项 | 默认值 | 是否必需 | 说明 |
 |--------|--------|----------|------|
-| `SEARCH_PROVIDER` | `baidu` | 否 | 搜索引擎提供商 (`baidu`、`google` 或 `bing`) |
+| `SEARCH_PROVIDER` | `bing_web` | 否 | 搜索引擎提供商 (`baidu`、`baidu_web`、`google`、`bing`、`bing_web` 或 `tavily`) |
+
+#### 百度搜索配置
+
+仅当 `SEARCH_PROVIDER=baidu` 时使用（通过百度千帆 AI 搜索 API）：
+
+| 配置项 | 默认值 | 是否必需 | 说明 |
+|--------|--------|----------|------|
+| `BAIDU_SEARCH_API_KEY` | - | 是 | 百度千帆 AI 搜索 API 密钥，从[百度千帆控制台](https://console.bce.baidu.com/qianfan/ais/console/onlineService)获取 |
+
+> 若不想申请 API 密钥，可将 `SEARCH_PROVIDER` 设为 `baidu_web`，直接通过网页抓取百度搜索结果，无需任何密钥。
+
+#### Bing 搜索配置
+
+仅当 `SEARCH_PROVIDER=bing` 时使用（通过官方 API 搜索）：
+
+| 配置项 | 默认值 | 是否必需 | 说明 |
+|--------|--------|----------|------|
+| `BING_SEARCH_API_KEY` | - | 是 | Bing Web Search API 密钥，从 [Azure](https://www.microsoft.com/en-us/bing/apis/bing-web-search-api) 获取 |
+
+> 若不想申请 API 密钥，可将 `SEARCH_PROVIDER` 设为 `bing_web`，直接通过网页抓取 Bing 搜索结果，无需任何密钥。
 
 #### Google 搜索配置
 
@@ -67,6 +88,14 @@
 |--------|--------|----------|------|
 | `GOOGLE_SEARCH_API_KEY` | - | 是 | Google 搜索 API 密钥 |
 | `GOOGLE_SEARCH_ENGINE_ID` | - | 是 | Google 自定义搜索引擎 ID |
+
+#### Tavily 搜索配置
+
+仅当 `SEARCH_PROVIDER=tavily` 时使用：
+
+| 配置项 | 默认值 | 是否必需 | 说明 |
+|--------|--------|----------|------|
+| `TAVILY_API_KEY` | - | 是 | Tavily 搜索 API 密钥 |
 
 ### 认证配置
 

@@ -7,12 +7,13 @@
 | Configuration | Default Value | Required | Description |
 |---------------|---------------|----------|-------------|
 | `API_KEY` | - | Yes | API key for the LLM model |
-| `API_BASE` | `http://mockserver:8090/v1` | Yes | Base API address for specifying model service endpoint |
+| `API_BASE` | `http://mockserver:8090/v1` | No | Base API address for specifying model service endpoint |
 
 ### Model Configuration
 
 | Configuration | Default Value | Required | Description |
 |---------------|---------------|----------|-------------|
+| `MODEL_PROVIDER` | `openai` | No | Model provider (e.g. `openai`, `anthropic`, `google_genai`, `ollama`) |
 | `MODEL_NAME` | `deepseek-chat` | Yes | Name of the model to use |
 | `TEMPERATURE` | `0.7` | No | Randomness level of model responses, range 0-1 |
 | `MAX_TOKENS` | `2000` | No | Maximum number of tokens in model response |
@@ -57,7 +58,27 @@
 
 | Configuration | Default Value | Required | Description |
 |---------------|---------------|----------|-------------|
-| `SEARCH_PROVIDER` | `baidu` | No | Search engine provider (`baidu`, `google`, or `bing`) |
+| `SEARCH_PROVIDER` | `bing_web` | No | Search engine provider (`baidu`, `baidu_web`, `google`, `bing`, `bing_web`, or `tavily`) |
+
+#### Baidu Search Configuration
+
+Used only when `SEARCH_PROVIDER=baidu` (Baidu Qianfan AI Search API):
+
+| Configuration | Default Value | Required | Description |
+|---------------|---------------|----------|-------------|
+| `BAIDU_SEARCH_API_KEY` | - | Yes | Baidu Qianfan AI Search API key, get from [Baidu Qianfan Console](https://console.bce.baidu.com/qianfan/ais/console/onlineService) |
+
+> If you don't want to apply for an API key, set `SEARCH_PROVIDER` to `baidu_web` to scrape Baidu search results directly without any key.
+
+#### Bing Search Configuration
+
+Used only when `SEARCH_PROVIDER=bing` (official API):
+
+| Configuration | Default Value | Required | Description |
+|---------------|---------------|----------|-------------|
+| `BING_SEARCH_API_KEY` | - | Yes | Bing Web Search API key, get from [Azure](https://www.microsoft.com/en-us/bing/apis/bing-web-search-api) |
+
+> If you don't want to apply for an API key, set `SEARCH_PROVIDER` to `bing_web` to scrape Bing search results directly without any key.
 
 #### Google Search Configuration
 
@@ -67,6 +88,14 @@ Used only when `SEARCH_PROVIDER=google`:
 |---------------|---------------|----------|-------------|
 | `GOOGLE_SEARCH_API_KEY` | - | Yes | Google Search API key |
 | `GOOGLE_SEARCH_ENGINE_ID` | - | Yes | Google Custom Search Engine ID |
+
+#### Tavily Search Configuration
+
+Used only when `SEARCH_PROVIDER=tavily`:
+
+| Configuration | Default Value | Required | Description |
+|---------------|---------------|----------|-------------|
+| `TAVILY_API_KEY` | - | Yes | Tavily Search API key |
 
 ### Authentication Configuration
 
